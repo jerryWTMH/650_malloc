@@ -1,6 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include "../my_malloc.h"
+#include "my_malloc.h"
 
 #ifdef FF
 #define MALLOC(sz) ff_malloc(sz)

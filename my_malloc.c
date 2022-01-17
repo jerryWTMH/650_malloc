@@ -4,141 +4,185 @@
 #include "my_malloc.h"
 
 // void * global_base = NULL;
-Blockmeta * first_free_block = NULL;
-Blockmeta * last_free_block = NULL;
+Blockmeta * firstFreeBlock = NULL;
+Blockmeta * lastFreeBlock = NULL;
+Blockmeta * firstDataBlock = NULL;
+size_t totalDataSize = 0;
+size_t totalFreeSize = 0;
 
-size_t data_size = 0;
-size_t free_size = 0;
 
-void add_block(Blockmeta * block){
-    if((first_free_block == NULL) || (block < first_free_block)){
-        // block < first_free_block just give a correct sequence
-        block->prev = NULL;
-        block->next = first_free_block;
-        if(first_free_block == NULL){            
-            last_free_block = block;
+
+void insert_block(Blockmeta * blockPtr){
+    if((firstFreeBlock == NULL) || (blockPtr < firstFreeBlock)){
+        // block < firstFreeBlock just give a correct sequence
+        blockPtr->prev = NULL;
+        blockPtr->next = firstFreeBlock;
+        if(blockPtr->next == NULL){        
+            lastFreeBlock = blockPtr;
         } else{
-            first_free_block -> prev = block;
+            blockPtr->next->prev = blockPtr;
         }
-        first_free_block = block;
+        firstFreeBlock = blockPtr;
     } else{
         // block should be put in the middle of the list
-        Blockmeta * curr = first_free_block;
-        while((curr->next != NULL) && (block > curr->next)){
-            curr = curr -> next;
+        Blockmeta * curr = firstFreeBlock;
+        while((curr->next != NULL) && (blockPtr > curr->next)){
+            curr = curr->next;
         }
-        block->prev = curr;
-        block->next = curr -> next;
-        curr-> next = block;
-        if(curr->next == NULL){
+        blockPtr->prev = curr;
+        blockPtr->next = curr->next;
+        curr->next = blockPtr;
+        if(blockPtr->next == NULL){
             // if there is originally only one element in the list.
-            last_free_block = block;
+            lastFreeBlock = blockPtr;
         } else{
-            curr->next->prev = block;
+            blockPtr->next->prev = blockPtr;
         }
 
     }
 }
 
-void remove_block(Blockmeta * p){
+void delete_block(Blockmeta * blockPtr){
     // adjusting the pointer in the LinkedList
-    if((first_free_block == last_free_block) && (first_free_block == p)){
+    if((lastFreeBlock == firstFreeBlock) && (lastFreeBlock == blockPtr)){
         // p is the only one left in the free block
-        last_free_block = first_free_block = NULL;
-    } else if(first_free_block == p){
+        lastFreeBlock = firstFreeBlock = NULL;
+    } else if(firstFreeBlock == blockPtr){
         // p is the first free block
-        first_free_block = p -> next;
-        first_free_block -> prev = NULL;
-    } else if(last_free_block ==p){
+        firstFreeBlock = blockPtr->next;
+        firstFreeBlock->prev = NULL;
+    } else if(lastFreeBlock ==blockPtr){
         // p is the last free block
-        last_free_block = p -> prev;
-        last_free_block -> next = NULL;
+        lastFreeBlock = blockPtr -> prev;
+        lastFreeBlock -> next = NULL;
     } else{
         // p is the middle free block
-        p -> prev -> next= p -> next;
-        p -> next -> prev = p -> prev;
+        blockPtr ->prev->next= blockPtr -> next;
+        blockPtr ->next ->prev = blockPtr -> prev;
     }
 }
 
-void * reuse_block(size_t size, Blockmeta * p){
-    if(p -> size > size + sizeof(Blockmeta)){
-        // splitted_block is the memory space left after allocating.
-        Blockmeta * splitted_block;
-        splitted_block = (Blockmeta *)((char *)p + sizeof(Blockmeta) + size);
-        splitted_block -> size = p -> size - size - sizeof(Blockmeta);
-        splitted_block -> isfree = 1;
-        splitted_block -> next = NULL;
-        splitted_block -> prev = NULL;
+Blockmeta * get_sliced_block(Blockmeta * blockPtr, size_t size){
+    // return a splitted block.
+        Blockmeta * slicedBlock;
+        slicedBlock = (Blockmeta *)((char *)blockPtr + sizeof(Blockmeta) + size);
+        slicedBlock -> size = blockPtr->size - size - sizeof(Blockmeta);
+        slicedBlock -> isfree = 1;
+        slicedBlock -> next = NULL;
+        slicedBlock -> prev = NULL;
+        return slicedBlock;
+}
 
+void * use_existing_block(size_t size, Blockmeta * blockPtr){
+    if(blockPtr->size > size + sizeof(Blockmeta)){
+        // slicedBlock is the memory space left after allocating.
+        Blockmeta * slicedBlock = get_sliced_block(blockPtr, size);
         // wanna use block p, so we need to remove it in the list
-        remove_block(p);
-        // wanna add the splitted_block into the list
-        add_block(splitted_block);
-        p->size = size;
-        free_size -= (size + sizeof(Blockmeta));
+        delete_block(blockPtr);
+        // wanna add the slicedBlock into the list
+        insert_block(slicedBlock);
+        blockPtr->size = size;
+        totalFreeSize -= (size + sizeof(Blockmeta));
     } else{
-        remove_block(p);
-        free_size -= (p->size + sizeof(Blockmeta)); ///////////
+        delete_block(blockPtr);
+        totalFreeSize -= (sizeof(Blockmeta) + blockPtr->size); 
     }
-    p->isfree = 0;
-    p->prev = NULL;
-    p->next = NULL;
-    return (char *)p + sizeof(Blockmeta);
+    blockPtr->isfree = 0;
+    blockPtr->prev = NULL;
+    blockPtr->next = NULL;
+    return (char *)blockPtr + sizeof(Blockmeta);
 
 }
 
 void * allocate_block(size_t size){
-    data_size += sizeof(Blockmeta) + size;
-    Blockmeta * new_block = sbrk(data_size);
-    if(first_free_block == NULL){
-        first_free_block = new_block;
+    Blockmeta * newBlock = sbrk(sizeof(Blockmeta)+ size);
+    if(firstDataBlock == NULL){
+        firstDataBlock = newBlock;
     }
-    new_block -> size = size;    
-    new_block -> prev = NULL;
-    new_block -> next = NULL;
-    new_block -> isfree = 0;
-    printf("new_block -> size:%lu \n", new_block->size);
-    
-    return (char*) new_block + sizeof(Blockmeta);
+    newBlock -> size = size;    
+    newBlock -> prev = NULL;
+    newBlock -> next = NULL;
+    newBlock -> isfree = 0;
+    // printf("newBlock -> size:%lu \n", newBlock->size);
+    totalDataSize = totalDataSize + sizeof(Blockmeta) + size;    
+    return (char*)newBlock + sizeof(Blockmeta);
 }
 
-
+void check_merge(Blockmeta * p){
+    //if the previous space is also a free space
+    if(p->prev != NULL){
+        if((char *)p->prev + p->prev->size + sizeof(Blockmeta) == (char *)p){
+            p->prev->size += sizeof(Blockmeta) + p->size;
+        delete_block(p);
+        }
+    }
+    //if the latter space is also a free space
+    if(p->next != NULL){
+        if((char *)p + p->size + sizeof(Blockmeta) == (char *)p->next){
+            p->size += sizeof(Blockmeta) + p->next->size;
+            delete_block(p->next);
+        }
+    }
+}
 
 void * ff_malloc(size_t size){
-    if(first_free_block != NULL){ 
-        Blockmeta * p = first_free_block;
-        while(p != NULL){
-            if(p -> size >= size){
-                return reuse_block(size, p);
+    if(firstFreeBlock != NULL){ 
+        Blockmeta * ptr = firstFreeBlock;
+        while(ptr != NULL){
+            if(size < ptr -> size){
+                return use_existing_block(size, ptr);
             }
-            p = p->next;
+            ptr = ptr->next;
         }
     }
     return allocate_block(size);
 }
 
 void ff_free(void * ptr){
-    Blockmeta * p;
-    p = (Blockmeta *)((char *)ptr - sizeof(Blockmeta));
-    p->isfree = 1;
-    add_block(p);
-
-    if((p->prev != NULL) && ((char *)p->prev + p->prev->size + sizeof(Blockmeta) == (char *)p)){
-        p->prev->size += sizeof(Blockmeta) + p->size;
-        remove_block(p);
-    }
-
-    if((p->next != NULL) && ((char *)p + p->size + sizeof(Blockmeta) == (char *)p->next)){
-        p->size += sizeof(Blockmeta) + p->next->size;
-        remove_block(p->next);
-    }
+    Blockmeta * realPtr;
+    realPtr = (Blockmeta *)((char *)ptr - sizeof(Blockmeta));
+    realPtr->isfree = 1;
+    // insert the block into the free block list.
+    insert_block(realPtr);
+    // check whether there would be some adjacent free blocks near the block that ptr points to.
+    check_merge(realPtr);
 }
 
 void * bf_malloc(size_t size){
- void * something = NULL;
- return something;
+        Blockmeta * p = firstFreeBlock;
+        size_t min = __SIZE_MAX__;
+        Blockmeta * min_ptr = NULL;
+        while(p != NULL){
+            if(size < p->size){
+                size_t diff = p->size - size;
+                if(diff < min){
+                    min = diff;
+                    min_ptr = p;
+                }
+            }
+            p = p->next;
+        }
+        if(min_ptr == NULL){
+            // cannot find a suitable free block!
+            return allocate_block(size);
+        } else{
+            // using min_ptr block
+            return use_existing_block(size, min_ptr);
+        }
+        
+    
 }
 
 void bf_free(void * ptr){
-    
+    // The bf_free is the same as the ff_free
+    ff_free(ptr);
 }
+
+unsigned long get_data_segment_size() {
+  return totalDataSize;
+}
+
+unsigned long get_data_segment_free_space_size() {
+  return totalFreeSize;
+}
+
