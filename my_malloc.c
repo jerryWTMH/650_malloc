@@ -153,7 +153,7 @@ void * bf_malloc(size_t size){
         size_t min = __SIZE_MAX__;
         Blockmeta * min_ptr = NULL;
         while(p != NULL){
-            if(size < p->size){
+            if(p->size >= size){
                 size_t diff = p->size - size;
                 if(diff < min){
                     min = diff;
@@ -185,4 +185,3 @@ unsigned long get_data_segment_size() {
 unsigned long get_data_segment_free_space_size() {
   return totalFreeSize;
 }
-
