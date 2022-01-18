@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-
+#include <stdbool.h>
 struct blockmeta{
     size_t size;
-    int isfree;
+    bool isfree;
     struct blockmeta * next;
     struct blockmeta * prev;
 };
