@@ -34,7 +34,7 @@ void insert_block(Blockmeta * blockPtr){
         Blockmeta * curr = firstFreeBlock;
         bool overLastOne = true;
         for(Blockmeta* curr = firstFreeBlock; curr->next != NULL; curr = curr->next){
-            if(blockPtr < curr->next){
+            if(blockPtr <= curr->next){
                 overLastOne = false;
                 break;
             }

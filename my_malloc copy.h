@@ -8,6 +8,7 @@ struct blockmeta{
     struct blockmeta * prev;
 };
 typedef struct blockmeta Blockmeta;
+#define META_SIZE sizeof(Blockmeta)
 
 // Hw default methods
 void * ff_malloc(size_t size);
