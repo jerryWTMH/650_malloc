@@ -6,14 +6,14 @@
 // void * global_base = NULL;
 Blockmeta * firstFreeBlock = NULL;
 Blockmeta * lastFreeBlock = NULL;
-//Blockmeta * firstDataBlock = NULL;
+// Blockmeta * firstDataBlock = NULL;
 size_t totalDataSize = 0;
 size_t totalFreeSize = 0;
 
 
 
 void insert_block(Blockmeta * blockPtr){
-   if((firstFreeBlock == NULL) || (blockPtr < firstFreeBlock)){
+    if((firstFreeBlock == NULL) || (blockPtr < firstFreeBlock)){
         // block < firstFreeBlock just give a correct sequence
         blockPtr->prev = NULL;
         blockPtr->next = firstFreeBlock;
@@ -31,10 +31,10 @@ void insert_block(Blockmeta * blockPtr){
     } 
     else{
         // block should be put in the middle of the list
-        Blockmeta * curr;
+        Blockmeta * curr = firstFreeBlock;
         bool overLastOne = true;
-        for(curr = firstFreeBlock; curr->next != NULL; curr = curr->next){
-            if(blockPtr <= curr->next){
+        for(Blockmeta* curr = firstFreeBlock; curr->next != NULL; curr = curr->next){
+            if(blockPtr < curr->next){
                 overLastOne = false;
                 break;
             }
@@ -48,44 +48,7 @@ void insert_block(Blockmeta * blockPtr){
             curr->next = blockPtr;
             blockPtr->next->prev = blockPtr;
         }
-
     }
-    //  if((firstFreeBlock == NULL) || (blockPtr < firstFreeBlock)){
-    //     // block < firstFreeBlock just give a correct sequence
-    //     blockPtr->prev = NULL;
-    //     blockPtr->next = firstFreeBlock;
-    //     firstFreeBlock = blockPtr;
-    //     if(blockPtr->next == NULL || blockPtr == lastFreeBlock){        
-    //         lastFreeBlock = blockPtr;
-    //     } else{
-    //         blockPtr->next->prev = blockPtr;
-    //     }
-    // } else if(blockPtr > lastFreeBlock){
-    //     lastFreeBlock->next = blockPtr;
-    //     blockPtr->prev = lastFreeBlock;
-    //     blockPtr->next = NULL;
-    //     lastFreeBlock = blockPtr;
-    // } 
-    // else{
-    //     // block should be put in the middle of the list
-    //     Blockmeta * curr = firstFreeBlock;
-    //     bool overLastOne = true;
-    //     for(Blockmeta* curr = firstFreeBlock; curr->next != NULL; curr = curr->next){
-    //         if(blockPtr < curr->next){
-    //             overLastOne = false;
-    //             break;
-    //         }
-    //     }
-    //     blockPtr->prev = curr;
-    //     if(overLastOne){
-    //         blockPtr->next = NULL;
-    //         curr-> next = blockPtr;
-    //     } else{
-    //         blockPtr->next = curr->next;
-    //         curr->next = blockPtr;
-    //         blockPtr->next->prev = blockPtr;
-    //     }
-    // }
 }
 
 void delete_block(Blockmeta * blockPtr){
@@ -123,27 +86,6 @@ Blockmeta * get_sliced_block(Blockmeta * blockPtr, size_t size){
         temp -> prev = NULL;
         return temp;
 }
-
-// void * use_existing_block(size_t size, Blockmeta * blockPtr){
-//     if(blockPtr->size > size + sizeof(Blockmeta)){
-//         // slicedBlock is the memory space left after allocating.
-//         Blockmeta * slicedBlock = get_sliced_block(blockPtr, size);
-//         // wanna use block p, so we need to remove it in the list
-//         delete_block(blockPtr);
-//         // wanna add the slicedBlock into the list
-//         insert_block(slicedBlock);
-//         blockPtr->size = size;
-//         totalFreeSize -= (size + sizeof(Blockmeta));
-//     } else{
-//         delete_block(blockPtr);
-//         totalFreeSize -= (sizeof(Blockmeta) + blockPtr->size); 
-//     }
-//     blockPtr->isfree = false;
-//     blockPtr->prev = NULL;
-//     blockPtr->next = NULL;
-//     return (char *)blockPtr + sizeof(Blockmeta);
-
-// }
 
 void * allocate_block(size_t size){
     
@@ -186,6 +128,26 @@ void check_merge(Blockmeta * p){
        p->size += META_SIZE + p->next->size;
        delete_block(p->next);
     }
+    
+}
+
+void * use_existing_block(size_t size, Blockmeta * blockPtr){	
+    if(blockPtr->size > size + META_SIZE){	
+        // slicedBlock is the memory space left after allocating.	
+        Blockmeta * slicedBlock = get_sliced_block(blockPtr, size);	
+        // wanna use block p, so we need to remove it in the list	
+        delete_block(blockPtr);	
+        // wanna add the slicedBlock into the list	
+        insert_block(slicedBlock);	
+        blockPtr->size = size;	
+        totalFreeSize -= (size + META_SIZE);	
+    } else{	
+        delete_block(blockPtr);	
+        totalFreeSize -= (META_SIZE + blockPtr->size); 	
+    }	
+    blockPtr->prev = NULL;	
+    blockPtr->next = NULL;	
+    return (char *)blockPtr + META_SIZE;	
 }
 
 void * ff_malloc(size_t size){
@@ -217,9 +179,8 @@ void * ff_malloc(size_t size){
 
 void ff_free(void * ptr){
     Blockmeta * realPtr;
-    realPtr = (Blockmeta *)((char *)ptr - sizeof(Blockmeta));
-    realPtr->isfree = true;
-    totalFreeSize += realPtr->size + sizeof(Blockmeta);
+    realPtr = (Blockmeta *)((char *)ptr - META_SIZE);
+    totalFreeSize += realPtr->size + META_SIZE;
     // insert the block into the free block list.
     insert_block(realPtr);
     // check whether there would be some adjacent free blocks near the block that ptr points to.
@@ -281,3 +242,5 @@ unsigned long get_data_segment_size() {
 unsigned long get_data_segment_free_space_size() {
   return totalFreeSize;
 }
+
+
