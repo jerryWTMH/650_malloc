@@ -218,23 +218,3 @@ unsigned long get_data_segment_size() {
 unsigned long get_data_segment_free_space_size() {
   return totalFreeSize;
 }
-
-// void * use_existing_block(size_t size, Blockmeta * blockPtr){
-//     if(blockPtr->size > size + META_SIZE){
-//         // slicedBlock is the memory space left after allocating.
-//         Blockmeta * slicedBlock = get_sliced_block(blockPtr, size);
-//         // wanna use block p, so we need to remove it in the list
-//         delete_block(blockPtr);
-//         // wanna add the slicedBlock into the list
-//         insert_block(slicedBlock);
-//         blockPtr->size = size;
-//         totalFreeSize -= (size + META_SIZE);
-//     } else{
-//         delete_block(blockPtr);
-//         totalFreeSize -= (META_SIZE + blockPtr->size); 
-//     }
-//     blockPtr->prev = NULL;
-//     blockPtr->next = NULL;
-//     return (char *)blockPtr + META_SIZE;
-
-// }
